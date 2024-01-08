@@ -10,10 +10,7 @@
                     <CardHeaderContent>
                         <MudText Typo="Typo.h5">Upload Documents</MudText>
                     </CardHeaderContent>
-                    <CardHeaderActions>
-                        <MudIconButton Icon="@Icons.Material.Filled.CloudUpload"
-                                       Size="Size.Large" Color="Color.Default" />
-                    </CardHeaderActions>
+                    
                 </MudCardHeader>
                 <MudCardContent>
                     <MudText Class="pb-4">
@@ -24,13 +21,13 @@
                                    Accept=".pdf" MaximumFileCount="10" FilesChanged=@(files => StateHasChanged())
                                    Required="true" RequiredError="You must select at least one PDF file to upload.">
                         <ButtonTemplate>
-                            <MudButton HtmlTag="label"
+                            <!--<MudButton HtmlTag="label"
                                        Variant="Variant.Filled"
                                        StartIcon="@Icons.Material.Filled.FileOpen"
                                        Size="Size.Large"
                                        for="@context">
                                 Select PDF Documents
-                            </MudButton>
+                            </MudButton>-->
                         </ButtonTemplate>
                         <SelectedTemplate>
                             <MudExpansionPanels Class="pt-4" Elevation=2>

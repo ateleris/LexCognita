@@ -1,15 +1,15 @@
-﻿@page "/chat"
+﻿@page "/"
 
 <!-- This page is intended for conversational Q&A. -->
 
-<PageTitle>Chat</PageTitle>
+<PageTitle>LexCognita</PageTitle>
 
 <MudGrid Justify="Justify.Center">
     <MudItem id="answers" xs="12" Class="overflow-x-auto">
         @if (_questionAndAnswerMap is { Count: 0 })
         {
             <div class="d-flex align-content-center flex-wrap flex-grow-1 full-height">
-                <Examples Message="Chat with your data" OnExampleClicked="@OnAskQuestionAsync" />
+                <Examples Message="Epic vs Apple legal chat" OnExampleClicked="@OnAskQuestionAsync" />
             </div>
         }
         else
@@ -18,21 +18,21 @@
                 @foreach (var ((question, askedOn), answer) in _questionAndAnswerMap)
                 {
                     <MudStack Justify="Justify.Center" AlignItems="AlignItems.Start" Spacing="4">
-                        <MudBadge Origin="Origin.TopLeft" Overlap="true" Color="Color.Secondary"
+                        <MudBadge Origin="Origin.TopLeft" Overlap="true" Color="Color.Primary"
                           Icon="@Icons.Material.Filled.QuestionMark" Class="d-flex align-self-end">
                             <MudPaper Class="pa-6 d-flex flex-column" Elevation="3">
                                 <MudText Typo="Typo.body1" Align="Align.End">
                                     @question
                                 </MudText>
-                                <MudText Typo="Typo.caption" Align="Align.End" Color="Color.Secondary">
-                                    @($"Asked at {askedOn:h:mm:ss tt} on {askedOn:M/dd/yy}")
+                                <MudText Typo="Typo.caption" Align="Align.End" Color="Color.Primary">
+                                    @($"Asked at {askedOn:hh:mm:ss} on {askedOn:dd/MM/yyyy}")
                                 </MudText>
                             </MudPaper>
                         </MudBadge>
                         <div class="ten-twelves">
                             @if (answer is null)
                             {
-                                <MudBadge Origin="Origin.TopLeft" Overlap="true" Color="Color.Secondary"
+                                <MudBadge Origin="Origin.TopLeft" Overlap="true" Color="Color.Primary"
                                           Icon="@Icons.Material.Filled.Lightbulb" Class="full-width">
                                     <MudPaper Class="pa-6" Elevation="3">
                                         <Loading />
@@ -49,7 +49,7 @@
                             }
                             else
                             {
-                                <MudBadge Origin="Origin.TopLeft" Overlap="true" Color="Color.Secondary"
+                                <MudBadge Origin="Origin.TopLeft" Overlap="true" Color="Color.Primary"
                                           Icon="@Icons.Material.Filled.AutoAwesome">
                                     <Answer Retort="@answer" FollowupQuestionClicked="@OnAskQuestionAsync" />
                                 </MudBadge>
@@ -65,7 +65,7 @@
             <MudItem xs="12" lg="10">
                 <VoiceTextInput @bind-Value="_userQuestion" Label="Prompt"
                                 Icon="@Icons.Material.Filled.QuestionAnswer"
-                                Placeholder="Enter OpenAI + Azure Search prompt"
+                                Placeholder="Enter search prompt"
                                 HelperText="Use Shift + Enter for new lines."
                                 Disabled=@_isReceivingResponse
                                 OnEnterKeyPressed="OnAskClickedAsync" />
@@ -73,7 +73,7 @@
             <MudItem xs="0" lg="2" Class="d-flex align-self-center">
                 <MudGrid Justify="Justify.Center">
                     <MudItem xs="9" Class="pa-2">
-                        <MudFab Color="Color.Secondary" Size="Size.Large"
+                        <MudFab Color="Color.Primary" Size="Size.Large"
                                 StartIcon=@Icons.Material.Filled.Send Class="full-width"
                                 Label="Chat" aria-label="Ask question button."
                                 OnClick="@OnAskClickedAsync"
