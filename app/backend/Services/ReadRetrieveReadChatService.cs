@@ -93,8 +93,7 @@ standard plan AND dental AND employee benefit.
         // step 3
         // put together related docs and conversation history to generate answer
         var answerChat = chat.CreateNewChat(
-            "You are a system assistant who helps the company employees with their healthcare " +
-            "plan questions, and questions about the employee handbook. Be brief in your answers");
+            "You are a legal assistant helping to answer questions about the Apple vs Epic case. You interact with people who have a legal background.");
 
         // add chat history
         foreach (var turn in history)
