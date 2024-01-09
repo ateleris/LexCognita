@@ -55,7 +55,8 @@ public class ReadRetrieveReadChatService
         string? query = null;
         if (overrides?.RetrievalMode != "Vector")
         {
-            var getQueryChat = chat.CreateNewChat(@"You are a helpful AI assistant, generate search query for followup question.
+            var getQueryChat = chat.CreateNewChat(@$"The current date and time is {DateTime.Now:yyyy-MM-dd HH:mm:ss}.
+You are a helpful legal AI assistant, generate search query for followup question.
 Make your respond simple and precise. Return the query only, do not return any other text.
 e.g.
 Northwind Health Plus AND standard plan.
@@ -86,14 +87,14 @@ standard plan AND dental AND employee benefit.
         }
         else
         {
-            documentContents = string.Join("\r", documentContentList.Select(x =>$"{x.Title}:{x.Content}"));
+            documentContents = string.Join("\r", documentContentList.Select(x => $"{x.Title}:{x.Content}"));
         }
 
         Console.WriteLine(documentContents);
         // step 3
         // put together related docs and conversation history to generate answer
         var answerChat = chat.CreateNewChat(
-            "You are a legal assistant helping to answer questions about the Apple vs Epic case. You interact with people who have a legal background.");
+           $"The current date and time is {DateTime.Now:yyyy-MM-dd HH:mm:ss}. You are a helpful legal AI assistant answering questions about the Apple vs Epic case. You interact with people who have a legal background.");
 
         // add chat history
         foreach (var turn in history)
@@ -129,7 +130,7 @@ You answer needs to be a json object with the following format.
         // add follow up questions if requested
         if (overrides?.SuggestFollowupQuestions is true)
         {
-            var followUpQuestionChat = chat.CreateNewChat(@"You are a helpful AI assistant");
+            var followUpQuestionChat = chat.CreateNewChat(@$"The current date and time is {DateTime.Now:yyyy-MM-dd HH:mm:ss}. You are a helpful legal AI assistant answering questions about the Apple vs Epic case. You interact with people who have a legal background.");
             followUpQuestionChat.AddUserMessage($@"Generate three follow-up question based on the answer you just generated.
 # Answer
 {ans}
