@@ -58,8 +58,8 @@ public class ReadRetrieveReadChatService
             var getQueryChat = chat.CreateNewChat(@"You are a helpful legal AI assistant answering questions about the Apple vs Epic case. You interact with people who have a legal background. Be brief in your answer, generate search query for followup question.
 Make your respond simple and precise. Return the query only, do not return any other text.
 e.g.
-Northwind Health Plus AND standard plan.
-standard plan AND dental AND employee benefit.
+gov.uscourts.cand.364265.1.0_2-0 AND gov.uscourts.cand.364265.1.0_2-1
+AND gov.uscourts.cand.364265.1.0_2-10.
 ");
 
             getQueryChat.AddUserMessage(question);
