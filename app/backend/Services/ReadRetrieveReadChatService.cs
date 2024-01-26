@@ -1,5 +1,7 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
+using System.Text.RegularExpressions;
+
 namespace MinimalApi.Services;
 
 public class ReadRetrieveReadChatService
@@ -110,7 +112,7 @@ AND gov.uscourts.cand.364265.1.0_2-10.
 {documentContents}
 ## End ##
 
-You answer needs to be a json object with the following format.
+Your answer needs to be a valid json object with the following format and escaped special characters.
 {{
     ""answer"": // the answer to the question, add a source reference to the end of each sentence. e.g. Apple is a fruit [reference1.pdf][reference2.pdf]. If no source available, put the answer as I don't know.
     ""thoughts"": // brief thoughts on how you came up with the answer, e.g. what sources you used, what you thought about, etc.
@@ -120,10 +122,45 @@ You answer needs to be a json object with the following format.
         var answer = await chat.GetChatCompletionsAsync(
                        answerChat,
                        cancellationToken: cancellationToken);
-        var answerJson = answer[0].ModelResult.GetOpenAIChatResult().Choice.Message.Content;
-        var answerObject = JsonSerializer.Deserialize<JsonElement>(answerJson);
+        string answerJson = answer[0].ModelResult.GetOpenAIChatResult().Choice.Message.Content;
+
+        Console.WriteLine(answerJson);
+
+        // fix source links
+        IList<string> presentCitations = new List<string>();
+        foreach (var sourceDoc in documentContentList)
+        {
+            if (answerJson.Contains(sourceDoc.Title))
+            {
+                presentCitations.Add(sourceDoc.Title);
+            }
+        }
+        // remove citations
+        answerJson = Regex.Replace(answerJson, @"\[.*\]", "");
+
+        JsonElement answerObject;
+        try
+        {
+            answerObject = JsonSerializer.Deserialize<JsonElement>(answerJson);
+        }
+        catch (JsonException)
+        {
+            return new ApproachResponse(
+                DataPoints: documentContentList,
+                Answer: "I'm sorry. I could not formulate a valid response.",
+                Thoughts: "",
+                CitationBaseUrl: _configuration.ToCitationBaseUrl()
+            );
+        }
+
         var ans = answerObject.GetProperty("answer").GetString() ?? throw new InvalidOperationException("Failed to get answer");
         var thoughts = answerObject.GetProperty("thoughts").GetString() ?? throw new InvalidOperationException("Failed to get thoughts");
+
+        // readd citations
+        foreach (string citation in presentCitations)
+        {
+            ans += $"[{citation}]";
+        }
 
         // step 4
         // add follow up questions if requested
