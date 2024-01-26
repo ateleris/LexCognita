@@ -95,7 +95,7 @@ AND gov.uscourts.cand.364265.1.0_2-10.
         // step 3
         // put together related docs and conversation history to generate answer
         var answerChat = chat.CreateNewChat(
-           "You are a helpful legal AI assistant answering questions about the Apple vs Epic case. You interact with people who have a legal background. Be brief in your answer.");
+           "You are a helpful legal AI assistant answering questions about the Apple vs Epic case. You interact with people who have a legal background. Your answers are related to the Apple vs Epic legal case. Be brief in your answer.");
 
         // add chat history
         foreach (var turn in history)
