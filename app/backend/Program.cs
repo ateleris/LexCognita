@@ -1,10 +1,7 @@
-﻿// Copyright (c) Microsoft. All rights reserved.
-
-using Microsoft.AspNetCore.Antiforgery;
+﻿using Microsoft.AspNetCore.Antiforgery;
+using MinimalApi.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
-
-builder.Configuration.ConfigureAzureKeyVault();
 
 // See: https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -52,7 +49,7 @@ else
             """;
         options.InstanceName = "content";
 
-        
+
     });
 
     // set application telemetry

@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft. All rights reserved.
+﻿
 
 namespace EmbedFunctions.Services;
 
@@ -12,8 +12,6 @@ public sealed class EmbeddingAggregateService(
     {
         try
         {
-            var embeddingType = GetEmbeddingType();
-
             if (Path.GetExtension(blobName) is ".png" or ".jpg" or ".jpeg" or ".gif")
             {
                 throw new NotImplementedException();
@@ -32,7 +30,6 @@ public sealed class EmbeddingAggregateService(
                 await corpusClient.SetMetadataAsync(new Dictionary<string, string>
                 {
                     [nameof(DocumentProcessingStatus)] = status.ToString(),
-                    [nameof(EmbeddingType)] = embeddingType.ToString()
                 });
             }
             else
@@ -46,9 +43,4 @@ public sealed class EmbeddingAggregateService(
             throw;
         }
     }
-
-    private static EmbeddingType GetEmbeddingType() => Environment.GetEnvironmentVariable("EMBEDDING_TYPE") is string type &&
-            Enum.TryParse<EmbeddingType>(type, out EmbeddingType embeddingType)
-            ? embeddingType
-            : EmbeddingType.AzureSearch;
 }

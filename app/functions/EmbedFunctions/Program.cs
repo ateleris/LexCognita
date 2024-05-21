@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft. All rights reserved.
+﻿
 
 using Azure.AI.OpenAI;
 using Milvus.Client;
@@ -46,7 +46,6 @@ var host = new HostBuilder()
         services.AddSingleton<MilvusEmbedService>(provider =>
         {
             var useAOAI = Environment.GetEnvironmentVariable("USE_AOAI")?.ToLower() == "true";
-            var useVision = Environment.GetEnvironmentVariable("USE_VISION")?.ToLower() == "true";
 
             OpenAIClient? openAIClient = null;
             string? embeddingModelName = null;
@@ -74,31 +73,13 @@ var host = new HostBuilder()
             var password = Environment.GetEnvironmentVariable("MILVUS_CONNECTION_PASSWORD") ?? "default";
             var milvusClient = new MilvusClient(url, username: username, password: password, port: port);
 
-
-            if (useVision)
-            {
-                var visionEndpoint = Environment.GetEnvironmentVariable("AZURE_COMPUTER_VISION_ENDPOINT") ?? throw new ArgumentNullException("AZURE_COMPUTER_VISION_ENDPOINT is null");
-                var httpClient = new HttpClient();
-                var visionClient = new AzureComputerVisionService(httpClient, visionEndpoint, new DefaultAzureCredential());
-
-                return new MilvusEmbedService(
-                    openAIClient: openAIClient,
-                    milvusClient: milvusClient,
-                    embeddingModelName: embeddingModelName,
-                    documentAnalysisClient: documentClient,
-                    corpusContainerClient: corpusContainer,
-                    logger: logger);
-            }
-            else
-            {
-                return new MilvusEmbedService(
-                openAIClient: openAIClient,
-                milvusClient: milvusClient,
-                embeddingModelName: embeddingModelName,
-                documentAnalysisClient: documentClient,
-                corpusContainerClient: corpusContainer,
-                logger: logger);
-            }
+            return new MilvusEmbedService(
+            openAIClient: openAIClient,
+            milvusClient,
+            embeddingModelName: embeddingModelName,
+            documentAnalysisClient: documentClient,
+            corpusContainerClient: corpusContainer,
+            logger: logger);
         });
     })
     .ConfigureFunctionsWorkerDefaults()

@@ -1,58 +1,48 @@
-﻿// Copyright (c) Microsoft. All rights reserved.
-
+﻿using Azure.AI.OpenAI;
 using Azure.Core;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using Microsoft.SemanticKernel.Embeddings;
+using MinimalApi.Extensions;
+using Shared.Models;
+using System.Text.Json;
 
 namespace MinimalApi.Services;
 #pragma warning disable SKEXP0011 // Mark members as static
 #pragma warning disable SKEXP0001 // Mark members as static
 public class ReadRetrieveReadChatService
 {
-    private readonly ISearchService _searchClient;
+    private readonly MilvusSearchService _searchClient;
     private readonly Kernel _kernel;
     private readonly IConfiguration _configuration;
-    private readonly IComputerVisionService? _visionService;
     private readonly TokenCredential? _tokenCredential;
 
     public ReadRetrieveReadChatService(
-        ISearchService searchClient,
+        MilvusSearchService searchClient,
         OpenAIClient client,
         IConfiguration configuration,
-        IComputerVisionService? visionService = null,
         TokenCredential? tokenCredential = null)
     {
         _searchClient = searchClient;
         var kernelBuilder = Kernel.CreateBuilder();
 
-        if (configuration["UseAOAI"] == "false")
+        var deployedModelName = configuration["AzureOpenAiChatGptDeployment"];
+        ArgumentException.ThrowIfNullOrWhiteSpace(deployedModelName);
+        var embeddingModelName = configuration["AzureOpenAiEmbeddingDeployment"];
+        if (!string.IsNullOrEmpty(embeddingModelName))
         {
-            var deployment = configuration["OpenAiChatGptDeployment"];
-            ArgumentNullException.ThrowIfNullOrWhiteSpace(deployment);
-            kernelBuilder = kernelBuilder.AddOpenAIChatCompletion(deployment, client);
+            var endpoint = configuration["AzureOpenAiServiceEndpoint"];
+            var apiKey = configuration["AzureOpenAiServiceKey"];
+            ArgumentException.ThrowIfNullOrWhiteSpace(endpoint);
+            ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
 
-            var embeddingModelName = configuration["OpenAiEmbeddingDeployment"];
-            ArgumentNullException.ThrowIfNullOrWhiteSpace(embeddingModelName);
-            kernelBuilder = kernelBuilder.AddOpenAITextEmbeddingGeneration(embeddingModelName, client);
-        }
-        else
-        {
-            var deployedModelName = configuration["AzureOpenAiChatGptDeployment"];
-            ArgumentNullException.ThrowIfNullOrWhiteSpace(deployedModelName);
-            var embeddingModelName = configuration["AzureOpenAiEmbeddingDeployment"];
-            if (!string.IsNullOrEmpty(embeddingModelName))
-            {
-                var endpoint = configuration["AzureOpenAiServiceEndpoint"];
-                ArgumentNullException.ThrowIfNullOrWhiteSpace(endpoint);
-                kernelBuilder = kernelBuilder.AddAzureOpenAITextEmbeddingGeneration(embeddingModelName, endpoint, tokenCredential ?? new DefaultAzureCredential());
-                kernelBuilder = kernelBuilder.AddAzureOpenAIChatCompletion(deployedModelName, endpoint, tokenCredential ?? new DefaultAzureCredential());
-            }
+            kernelBuilder = kernelBuilder.AddAzureOpenAITextEmbeddingGeneration(embeddingModelName, endpoint, apiKey);
+            kernelBuilder = kernelBuilder.AddAzureOpenAIChatCompletion(deployedModelName, endpoint, apiKey);
         }
 
         _kernel = kernelBuilder.Build();
         _configuration = configuration;
-        _visionService = visionService;
         _tokenCredential = tokenCredential;
     }
 
@@ -113,15 +103,6 @@ AND gov.uscourts.cand.364265.1.0_2-10.
             documentContents = string.Join("\r", documentContentList.Select(x => $"{x.Title}:{x.Content}"));
         }
 
-        // step 2.5
-        // retrieve images if _visionService is available
-        SupportingImageRecord[]? images = default;
-        if (_visionService is not null)
-        {
-            var queryEmbeddings = await _visionService.VectorizeTextAsync(query ?? question, cancellationToken);
-            images = await _searchClient.QueryImagesAsync(query, queryEmbeddings.vector, overrides, cancellationToken);
-        }
-
         // step 3
         // put together related docs and conversation history to generate answer
         var answerChat = new ChatHistory(
@@ -140,43 +121,17 @@ AND gov.uscourts.cand.364265.1.0_2-10.
             }
         }
 
-
-        if (images != null)
-        {
-            var prompt = @$"## Source ##
+        var prompt = @$" ## Source ##
 {documentContents}
 ## End ##
 
-Answer question based on available source and images.
-Your answer needs to be a json object with answer and thoughts field.
-Don't put your answer between ```json and ```, return the json string directly. e.g {{""answer"": ""I don't know"", ""thoughts"": ""I don't know""}}";
-
-            var tokenRequestContext = new TokenRequestContext(new[] { "https://storage.azure.com/.default" });
-            var sasToken = await (_tokenCredential?.GetTokenAsync(tokenRequestContext, cancellationToken) ?? throw new InvalidOperationException("Failed to get token"));
-            var sasTokenString = sasToken.Token;
-            var imageUrls = images.Select(x => $"{x.Url}?{sasTokenString}").ToArray();
-            var collection = new ChatMessageContentItemCollection();
-            collection.Add(new TextContent(prompt));
-            foreach (var imageUrl in imageUrls)
-            {
-                collection.Add(new ImageContent(new Uri(imageUrl)));
-            }
-
-            answerChat.AddUserMessage(collection);
-        }
-        else
-        {
-            var prompt = @$" ## Source ##
-{documentContents}
-## End ##
-
-Your answer needs to be a valid json object with the following format and escaped special characters.
+Your answer needs to be a valid json object with the following format and no special characters.
 {{
-    ""answer"": // the answer to the question, add a source reference to the end of each sentence. e.g. Apple is a fruit [reference1.pdf][reference2.pdf]. If no source available, put the answer as I don't know.
-    ""thoughts"": // brief thoughts on how you came up with the answer, e.g. what sources you used, what you thought about, etc.
+""answer"": // the answer to the question, add a source reference to the end of each sentence. e.g. Apple is a fruit [reference1.pdf][reference2.pdf]. If no source available, put the answer as I don't know.
+""thoughts"": // brief thoughts on how you came up with the answer, e.g. what sources you used, what you thought about, etc.
 }}";
-            answerChat.AddUserMessage(prompt);
-        }
+        answerChat.AddUserMessage(prompt);
+
 
         var promptExecutingSetting = new OpenAIPromptExecutionSettings
         {
@@ -223,6 +178,7 @@ Your answer needs to be a valid json object with the following format and escape
         //}
 
         var answerJson = answer.Content ?? throw new InvalidOperationException("Failed to get search query");
+
         var answerObject = JsonSerializer.Deserialize<JsonElement>(answerJson);
         var ans = answerObject.GetProperty("answer").GetString() ?? throw new InvalidOperationException("Failed to get answer");
         var thoughts = answerObject.GetProperty("thoughts").GetString() ?? throw new InvalidOperationException("Failed to get thoughts");
@@ -270,7 +226,7 @@ e.g.
         var responseMessage = new ResponseMessage("assistant", ans);
         var responseContext = new ResponseContext(
             DataPointsContent: documentContentList.Select(x => new SupportingContentRecord(x.Title, x.Content)).ToArray(),
-            DataPointsImages: images?.Select(x => new SupportingImageRecord(x.Title, x.Url)).ToArray(),
+            DataPointsImages: [],
             FollowupQuestions: followUpQuestionList ?? Array.Empty<string>(),
             Thoughts: new[] { new Thoughts("Thoughts", thoughts) });
 

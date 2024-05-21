@@ -1,21 +1,26 @@
-﻿// Copyright (c) Microsoft. All rights reserved.
+﻿
+
+using Azure;
+using Azure.AI.FormRecognizer.DocumentAnalysis;
+using Azure.AI.OpenAI;
+using Azure.Storage.Blobs;
+using Milvus.Client;
+using MinimalApi.Services;
 
 namespace MinimalApi.Extensions;
 
 internal static class ServiceCollectionExtensions
 {
-    private static readonly DefaultAzureCredential s_azureCredential = new();
 
     internal static IServiceCollection AddAzureServices(this IServiceCollection services)
     {
         services.AddSingleton<BlobServiceClient>(sp =>
         {
             var config = sp.GetRequiredService<IConfiguration>();
-            var azureStorageAccountEndpoint = config["AzureStorageAccountEndpoint"];
-            ArgumentNullException.ThrowIfNullOrEmpty(azureStorageAccountEndpoint);
+            var blobStorageConnectionString = config["AzureBlobStorageConnectionString"];
+            ArgumentNullException.ThrowIfNullOrEmpty(blobStorageConnectionString);
 
-            var blobServiceClient = new BlobServiceClient(
-                new Uri(azureStorageAccountEndpoint), s_azureCredential);
+            var blobServiceClient = new BlobServiceClient(blobStorageConnectionString);
 
             return blobServiceClient;
         });
@@ -27,74 +32,61 @@ internal static class ServiceCollectionExtensions
             return sp.GetRequiredService<BlobServiceClient>().GetBlobContainerClient(azureStorageContainer);
         });
 
-        services.AddSingleton<ISearchService, AzureSearchService>(sp =>
+        services.AddSingleton<MilvusSearchService>(sp =>
         {
             var config = sp.GetRequiredService<IConfiguration>();
-            var azureSearchServiceEndpoint = config["AzureSearchServiceEndpoint"];
-            ArgumentNullException.ThrowIfNullOrEmpty(azureSearchServiceEndpoint);
 
-            var azureSearchIndex = config["AzureSearchIndex"];
-            ArgumentNullException.ThrowIfNullOrEmpty(azureSearchIndex);
+            var url = config["Milvus:DBUrl"];
+            var port = int.TryParse(config["Milvus:Port"], out int portNum) ? portNum : 19530;
+            var username = config["Milvus:Username"];
+            var password = config["Milvus:Password"];
 
-            var searchClient = new SearchClient(
-                               new Uri(azureSearchServiceEndpoint), azureSearchIndex, s_azureCredential);
+            ArgumentException.ThrowIfNullOrEmpty(url);
+            ArgumentException.ThrowIfNullOrEmpty(username);
+            ArgumentException.ThrowIfNullOrEmpty(password);
 
-            return new AzureSearchService(searchClient);
+            var client = new MilvusClient(url, username: username, password: password, port: port);
+
+            return new MilvusSearchService(client);
         });
 
         services.AddSingleton<DocumentAnalysisClient>(sp =>
         {
             var config = sp.GetRequiredService<IConfiguration>();
             var azureOpenAiServiceEndpoint = config["AzureOpenAiServiceEndpoint"] ?? throw new ArgumentNullException();
+            var azureOpenAiServiceKey = config["AzureOpenAiServiceKey"] ?? throw new ArgumentNullException();
 
             var documentAnalysisClient = new DocumentAnalysisClient(
-                new Uri(azureOpenAiServiceEndpoint), s_azureCredential);
+                new Uri(azureOpenAiServiceEndpoint),
+                new AzureKeyCredential(azureOpenAiServiceKey)
+            );
             return documentAnalysisClient;
         });
 
         services.AddSingleton<OpenAIClient>(sp =>
         {
             var config = sp.GetRequiredService<IConfiguration>();
-            var useAOAI = config["UseAOAI"] == "true";
-            if (useAOAI)
-            {
-                var azureOpenAiServiceEndpoint = config["AzureOpenAiServiceEndpoint"];
-                ArgumentNullException.ThrowIfNullOrEmpty(azureOpenAiServiceEndpoint);
 
-                var openAIClient = new OpenAIClient(new Uri(azureOpenAiServiceEndpoint), s_azureCredential);
+            var azureOpenAiServiceEndpoint = config["AzureOpenAiServiceEndpoint"];
+            var azureOpenAiServiceKey = config["AzureOpenAiServiceKey"];
+            ArgumentNullException.ThrowIfNullOrEmpty(azureOpenAiServiceEndpoint);
+            ArgumentNullException.ThrowIfNullOrEmpty(azureOpenAiServiceKey);
 
-                return openAIClient;
-            }
-            else
-            {
-                var openAIApiKey = config["OpenAIApiKey"];
-                ArgumentNullException.ThrowIfNullOrEmpty(openAIApiKey);
+            var openAIClient = new OpenAIClient(
+               new Uri(azureOpenAiServiceEndpoint),
+               new AzureKeyCredential(azureOpenAiServiceKey)
+            );
 
-                var openAIClient = new OpenAIClient(openAIApiKey);
-                return openAIClient;
-            }
+            return openAIClient;
         });
 
         services.AddSingleton<AzureBlobStorageService>();
         services.AddSingleton<ReadRetrieveReadChatService>(sp =>
         {
             var config = sp.GetRequiredService<IConfiguration>();
-            var useVision = config["UseVision"] == "true";
             var openAIClient = sp.GetRequiredService<OpenAIClient>();
-            var searchClient = sp.GetRequiredService<ISearchService>();
-            if (useVision)
-            {
-                var azureComputerVisionServiceEndpoint = config["AzureComputerVisionServiceEndpoint"];
-                ArgumentNullException.ThrowIfNullOrEmpty(azureComputerVisionServiceEndpoint);
-                var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient();
-                
-                var visionService = new AzureComputerVisionService(httpClient, azureComputerVisionServiceEndpoint, s_azureCredential);
-                return new ReadRetrieveReadChatService(searchClient, openAIClient, config, visionService, s_azureCredential);
-            }
-            else
-            {
-                return new ReadRetrieveReadChatService(searchClient, openAIClient, config, tokenCredential: s_azureCredential);
-            }
+            var searchClient = sp.GetRequiredService<MilvusSearchService>();
+            return new ReadRetrieveReadChatService(searchClient, openAIClient, config);
         });
 
         return services;

@@ -1,11 +1,15 @@
-﻿// Copyright (c) Microsoft. All rights reserved.
+﻿
+
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
+using PdfSharpCore.Pdf;
+using PdfSharpCore.Pdf.IO;
+using Shared.Models;
 
 namespace MinimalApi.Services;
 
 internal sealed class AzureBlobStorageService(BlobContainerClient container)
 {
-    internal static DefaultAzureCredential DefaultCredential { get; } = new();
-
     internal async Task<UploadDocumentsResponse> UploadFilesAsync(IEnumerable<IFormFile> files, CancellationToken cancellationToken)
     {
         try

@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft. All rights reserved.
+﻿
 
 using Azure;
 using Azure.AI.FormRecognizer.DocumentAnalysis;
@@ -32,11 +32,10 @@ internal static partial class Program
             var blobContainerClient = await GetCorpusBlobContainerClientAsync(o);
             var openAIClient = await GetOpenAIClientAsync(o);
             var embeddingModelName = o.EmbeddingModelName ?? throw new ArgumentNullException(nameof(o.EmbeddingModelName));
-            var computerVisionService = await GetComputerVisionServiceAsync(o);
 
             return new MilvusEmbedService(
                 openAIClient: openAIClient,
-                milvusClient: milvusClient,
+                milvusClient,
                 embeddingModelName: embeddingModelName,
                 documentAnalysisClient: documentClient,
                 corpusContainerClient: blobContainerClient,
@@ -101,20 +100,6 @@ internal static partial class Program
             await Task.CompletedTask;
 
             return s_documentClient;
-        });
-
-    private static Task<IComputerVisionService?> GetComputerVisionServiceAsync(AppOptions options) =>
-        GetLazyClientAsync<IComputerVisionService?>(options, s_openAILock, async o =>
-        {
-            await Task.CompletedTask;
-            var endpoint = o.ComputerVisionServiceEndpoint;
-
-            if (string.IsNullOrEmpty(endpoint))
-            {
-                return null;
-            }
-
-            return new AzureComputerVisionService(new HttpClient(), endpoint, DefaultCredential);
         });
 
     private static Task<OpenAIClient> GetOpenAIClientAsync(AppOptions options) =>

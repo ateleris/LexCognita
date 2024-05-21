@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft. All rights reserved.
+﻿
 
 using System.Text.RegularExpressions;
 using Azure.Identity;

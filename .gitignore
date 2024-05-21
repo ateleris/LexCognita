@@ -483,3 +483,6 @@ env/
 venv/
 myvenv/
 ENV/
+
+# App settings
+**/appsettings.*

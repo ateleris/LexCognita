@@ -1,8 +1,5 @@
-﻿// Copyright (c) Microsoft. All rights reserved.
+﻿
 
-using System.Net;
-using System.Text;
-using System.Text.RegularExpressions;
 using Azure;
 using Azure.AI.FormRecognizer.DocumentAnalysis;
 using Azure.AI.OpenAI;
@@ -11,6 +8,10 @@ using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Logging;
 using Milvus.Client;
 using Shared.Models;
+using Shared.Services;
+using System.Net;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace EmbedFunctions.Services;
 
@@ -20,10 +21,9 @@ public sealed partial class MilvusEmbedService(
     string embeddingModelName,
     DocumentAnalysisClient documentAnalysisClient,
     BlobContainerClient corpusContainerClient,
-    ILogger<MilvusEmbedService>? logger = null)
+    ILogger<MilvusEmbedService>? logger = null) : MilvusBase(milvusClient, openAIClient, embeddingModelName)
 {
 
-    private const string COLLECTION_NAME = "documents";
 
     [GeneratedRegex("[^0-9a-zA-Z_-]")]
     private static partial Regex MatchInSetRegex();
@@ -58,29 +58,6 @@ public sealed partial class MilvusEmbedService(
 
             throw;
         }
-    }
-
-    private async Task<MilvusCollection> GetOrCreateCollectionAsync()
-    {
-        if (await milvusClient.HasCollectionAsync(COLLECTION_NAME))
-        {
-            return milvusClient.GetCollection(COLLECTION_NAME);
-        }
-
-        var schema = new CollectionSchema
-        {
-            Fields =
-            {
-                FieldSchema.CreateVarchar("id", 100, isPrimaryKey: true),
-                FieldSchema.CreateVarchar("content", 65000),
-                FieldSchema.CreateVarchar("category", 10000),
-                FieldSchema.CreateVarchar("sourcepage", 10000),
-                FieldSchema.CreateVarchar("sourcefile", 10000),
-                FieldSchema.CreateFloatVector("embedding", 1536),
-            }
-        };
-
-        return await milvusClient.CreateCollectionAsync(COLLECTION_NAME, schema);
     }
 
     public async Task<IReadOnlyList<PageDetail>> GetDocumentTextAsync(Stream blobStream, string blobName)
@@ -351,8 +328,7 @@ public sealed partial class MilvusEmbedService(
         foreach (var section in sections)
         {
             iteration++;
-            var embeddings = await openAIClient.GetEmbeddingsAsync(new Azure.AI.OpenAI.EmbeddingsOptions(embeddingModelName, [section.Content.Replace('\r', ' ')]));
-            var embedding = embeddings.Value.Data.FirstOrDefault()?.Embedding.ToArray() ?? [];
+            var embedding = await GetEmbeddingAsync(section.Content);
 
             ids.Add(section.Id);
             contents.Add(section.Content);

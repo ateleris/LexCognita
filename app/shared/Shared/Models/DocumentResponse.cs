@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft. All rights reserved.
+﻿
 
 namespace Shared.Models;
 
@@ -9,4 +9,4 @@ public record class DocumentResponse(
     DateTimeOffset? LastModified,
     Uri Url,
     DocumentProcessingStatus Status,
-    EmbeddingType EmbeddingType);
+    string EmbeddingType);

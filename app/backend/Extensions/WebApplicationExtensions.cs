@@ -1,4 +1,11 @@
-﻿// Copyright (c) Microsoft. All rights reserved.
+﻿
+
+using Azure.AI.OpenAI;
+using Azure.Storage.Blobs;
+using Microsoft.AspNetCore.Mvc;
+using MinimalApi.Services;
+using Shared.Models;
+using System.Runtime.CompilerServices;
 
 namespace MinimalApi.Extensions;
 
@@ -117,8 +124,6 @@ internal static class WebApplicationExtensions
                 var metadata = blob.Metadata;
                 var documentProcessingStatus = GetMetadataEnumOrDefault<DocumentProcessingStatus>(
                     metadata, nameof(DocumentProcessingStatus), DocumentProcessingStatus.NotProcessed);
-                var embeddingType = GetMetadataEnumOrDefault<EmbeddingType>(
-                    metadata, nameof(EmbeddingType), EmbeddingType.AzureSearch);
 
                 yield return new(
                     blob.Name,
@@ -127,7 +132,7 @@ internal static class WebApplicationExtensions
                     props.LastModified,
                     builder.Uri,
                     documentProcessingStatus,
-                    embeddingType);
+                    "milvus");
 
                 static TEnum GetMetadataEnumOrDefault<TEnum>(
                     IDictionary<string, string> metadata,
