@@ -1,5 +1,7 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
+using System.CommandLine;
+
 namespace PrepareDocs;
 
 internal record class AppOptions(
@@ -18,6 +20,10 @@ internal record class AppOptions(
     string? FormRecognizerServiceEndpoint,
     string? ComputerVisionServiceEndpoint,
     bool Verbose,
-    IConsole Console) : AppConsole(Console);
+    IConsole Console,
+    string milvusURL,
+    int milvusPort,
+    string milvusUsername,
+    string milvusPassword) : AppConsole(Console);
 
 internal record class AppConsole(IConsole Console);

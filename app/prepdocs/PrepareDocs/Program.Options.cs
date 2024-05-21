@@ -1,5 +1,9 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
+using System.CommandLine;
+using System.CommandLine.Invocation;
+using PrepareDocs;
+
 internal static partial class Program
 {
     private static readonly Argument<string> s_files =
@@ -47,6 +51,11 @@ internal static partial class Program
     private static readonly Option<bool> s_verbose =
        new(aliases: new[] { "--verbose", "-v" }, description: "Verbose output");
 
+    private static readonly Option<string> s_milvusUrl = new(name: "--milvusurl", description: "todo");
+    private static readonly Option<int> s_milvusPort = new(name: "--milvusport", description: "todo");
+    private static readonly Option<string> s_milvusUsername = new(name: "--milvususername", description: "todo");
+    private static readonly Option<string> s_milvusPassword = new(name: "--milvuspassword", description: "todo");
+
     private static readonly RootCommand s_rootCommand =
         new(description: """
         Prepare documents by extracting content from PDFs, splitting content into sections,
@@ -68,6 +77,10 @@ internal static partial class Program
             s_formRecognizerServiceEndpoint,
             s_computerVisionServiceEndpoint,
             s_verbose,
+            s_milvusUrl,
+            s_milvusPort,
+            s_milvusUsername,
+            s_milvusPassword,
         };
 
     private static AppOptions GetParsedAppOptions(InvocationContext context) => new(
@@ -86,5 +99,10 @@ internal static partial class Program
             FormRecognizerServiceEndpoint: context.ParseResult.GetValueForOption(s_formRecognizerServiceEndpoint),
             ComputerVisionServiceEndpoint: context.ParseResult.GetValueForOption(s_computerVisionServiceEndpoint),
             Verbose: context.ParseResult.GetValueForOption(s_verbose),
-            Console: context.Console);
+            Console: context.Console,
+            milvusURL: context.ParseResult.GetValueForOption(s_milvusUrl)!,
+            milvusPort: context.ParseResult.GetValueForOption(s_milvusPort),
+            milvusUsername: context.ParseResult.GetValueForOption(s_milvusUsername)!,
+            milvusPassword: context.ParseResult.GetValueForOption(s_milvusPassword)!);
+
 }

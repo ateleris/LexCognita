@@ -1,6 +1,16 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
-using System.Diagnostics;
+using System.CommandLine;
+using System.Text.RegularExpressions;
+using Azure.Identity;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
+using EmbedFunctions.Services;
+using Microsoft.Extensions.FileSystemGlobbing;
+using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
+using PdfSharpCore.Pdf;
+using PdfSharpCore.Pdf.IO;
+using PrepareDocs;
 
 s_rootCommand.SetHandler(
     async (context) =>
@@ -14,8 +24,7 @@ s_rootCommand.SetHandler(
         else
         {
             var searchIndexName = options.SearchIndexName ?? throw new ArgumentNullException(nameof(options.SearchIndexName));
-            var embedService = await GetAzureSearchEmbedService(options);
-            await embedService.EnsureSearchIndexAsync(options.SearchIndexName);
+            var embedService = await GetMilvusEmbedService(options);
 
             Matcher matcher = new();
             // From bash, the single quotes surrounding the path (to avoid expansion of the wildcard), are included in the argument value.
@@ -40,7 +49,7 @@ s_rootCommand.SetHandler(
 
             await Task.WhenAll(tasks);
 
-            static async Task ProcessSingleFileAsync(AppOptions options, string fileName, IEmbedService embedService)
+            static async Task ProcessSingleFileAsync(AppOptions options, string fileName, MilvusEmbedService embedService)
             {
                 if (options.Verbose)
                 {
@@ -106,57 +115,11 @@ static async ValueTask RemoveBlobsAsync(
 static async ValueTask RemoveFromIndexAsync(
     AppOptions options, string? fileName = null)
 {
-    if (options.Verbose)
-    {
-        options.Console.WriteLine($"""
-            Removing sections from '{fileName ?? "all"}' from search index '{options.SearchIndexName}.'
-            """);
-    }
-
-    var searchClient = await GetSearchClientAsync(options);
-
-    while (true)
-    {
-        var filter = (fileName is null) ? null : $"sourcefile eq '{Path.GetFileName(fileName)}'";
-
-        var response = await searchClient.SearchAsync<SearchDocument>("",
-            new SearchOptions
-            {
-                Filter = filter,
-                Size = 1_000,
-                IncludeTotalCount = true
-            });
-
-        var documentsToDelete = new List<SearchDocument>();
-        await foreach (var result in response.Value.GetResultsAsync())
-        {
-            documentsToDelete.Add(new SearchDocument
-            {
-                ["id"] = result.Document["id"]
-            });
-        }
-
-        if (documentsToDelete.Count == 0)
-        {
-            break;
-        }
-        Response<IndexDocumentsResult> deleteResponse =
-            await searchClient.DeleteDocumentsAsync(documentsToDelete);
-
-        if (options.Verbose)
-        {
-            Console.WriteLine($"""
-                    Removed {deleteResponse.Value.Results.Count} sections from index
-                """);
-        }
-
-        // It can take a few seconds for search results to reflect changes, so wait a bit
-        await Task.Delay(TimeSpan.FromMilliseconds(2_000));
-    }
+    throw new NotImplementedException();
 }
 
 static async ValueTask UploadBlobsAndCreateIndexAsync(
-    AppOptions options, string fileName, IEmbedService embeddingService)
+    AppOptions options, string fileName, MilvusEmbedService embeddingService)
 {
     var container = await GetBlobContainerClientAsync(options);
 
@@ -197,17 +160,6 @@ static async ValueTask UploadBlobsAndCreateIndexAsync(
                 File.Delete(tempFileName);
             }
         }
-    }
-    // if it's an img (end with .png/.jpg/.jpeg), upload it to blob storage and embed it.
-    else if (Path.GetExtension(fileName).Equals(".png", StringComparison.OrdinalIgnoreCase) ||
-        Path.GetExtension(fileName).Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
-        Path.GetExtension(fileName).Equals(".jpeg", StringComparison.OrdinalIgnoreCase))
-    {
-        using var stream = File.OpenRead(fileName);
-        var blobName = BlobNameFromFilePage(fileName);
-        var imageName = Path.GetFileNameWithoutExtension(blobName);
-        var url = await UploadBlobAsync(fileName, blobName, container);
-        await embeddingService.EmbedImageBlobAsync(stream, url, imageName);
     }
     else
     {

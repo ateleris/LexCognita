@@ -1,12 +1,17 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
+using Azure.AI.FormRecognizer.DocumentAnalysis;
+using Azure.AI.OpenAI;
+using Azure.Storage.Blobs;
+using EmbedFunctions.Services;
+using Milvus.Client;
+using PrepareDocs;
+
 internal static partial class Program
 {
     private static BlobContainerClient? s_corpusContainerClient;
     private static BlobContainerClient? s_containerClient;
     private static DocumentAnalysisClient? s_documentClient;
-    private static SearchIndexClient? s_searchIndexClient;
-    private static SearchClient? s_searchClient;
     private static OpenAIClient? s_openAIClient;
 
     private static readonly SemaphoreSlim s_corpusContainerLock = new(1);
@@ -17,11 +22,11 @@ internal static partial class Program
     private static readonly SemaphoreSlim s_openAILock = new(1);
     private static readonly SemaphoreSlim s_embeddingLock = new(1);
 
-    private static Task<AzureSearchEmbedService> GetAzureSearchEmbedService(AppOptions options) =>
-        GetLazyClientAsync<AzureSearchEmbedService>(options, s_embeddingLock, async o =>
+    private static Task<MilvusEmbedService> GetMilvusEmbedService(AppOptions options) =>
+        GetLazyClientAsync<MilvusEmbedService>(options, s_embeddingLock, async o =>
         {
-            var searchIndexClient = await GetSearchIndexClientAsync(o);
-            var searchClient = await GetSearchClientAsync(o);
+            var milvusClient = new MilvusClient(options.milvusURL, username: options.milvusUsername, password: options.milvusPassword, port: options.milvusPort);
+
             var documentClient = await GetFormRecognizerClientAsync(o);
             var blobContainerClient = await GetCorpusBlobContainerClientAsync(o);
             var openAIClient = await GetOpenAIClientAsync(o);
@@ -29,16 +34,13 @@ internal static partial class Program
             var searchIndexName = o.SearchIndexName ?? throw new ArgumentNullException(nameof(o.SearchIndexName));
             var computerVisionService = await GetComputerVisionServiceAsync(o);
 
-            return new AzureSearchEmbedService(
+            return new MilvusEmbedService(
                 openAIClient: openAIClient,
+                milvusClient: milvusClient,
                 embeddingModelName: embeddingModelName,
-                searchClient: searchClient,
                 searchIndexName: searchIndexName,
-                searchIndexClient: searchIndexClient,
                 documentAnalysisClient: documentClient,
                 corpusContainerClient: blobContainerClient,
-                computerVisionService: computerVisionService,
-                includeImageEmbeddingsField: computerVisionService != null,
                 logger: null);
         });
 
@@ -110,43 +112,6 @@ internal static partial class Program
             return s_documentClient;
         });
 
-    private static Task<SearchIndexClient> GetSearchIndexClientAsync(AppOptions options) =>
-        GetLazyClientAsync<SearchIndexClient>(options, s_searchIndexLock, static async o =>
-        {
-            if (s_searchIndexClient is null)
-            {
-                var endpoint = o.SearchServiceEndpoint;
-                ArgumentNullException.ThrowIfNullOrEmpty(endpoint);
-
-                s_searchIndexClient = new SearchIndexClient(
-                    new Uri(endpoint),
-                    DefaultCredential);
-            }
-
-            await Task.CompletedTask;
-
-            return s_searchIndexClient;
-        });
-
-    private static Task<SearchClient> GetSearchClientAsync(AppOptions options) =>
-        GetLazyClientAsync<SearchClient>(options, s_searchLock, async o =>
-        {
-            if (s_searchClient is null)
-            {
-                var endpoint = o.SearchServiceEndpoint;
-                ArgumentNullException.ThrowIfNullOrEmpty(endpoint);
-
-                s_searchClient = new SearchClient(
-                    new Uri(endpoint),
-                    o.SearchIndexName,
-                    DefaultCredential);
-            }
-
-            await Task.CompletedTask;
-
-            return s_searchClient;
-        });
-
     private static Task<IComputerVisionService?> GetComputerVisionServiceAsync(AppOptions options) =>
         GetLazyClientAsync<IComputerVisionService?>(options, s_openAILock, async o =>
         {
@@ -169,10 +134,10 @@ internal static partial class Program
                var useAOAI = Environment.GetEnvironmentVariable("USE_AOAI") == "true";
                if (!useAOAI)
                {
-                     var openAIApiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-                     Console.WriteLine("useAOAI value is: " + useAOAI.ToString());
-                     ArgumentNullException.ThrowIfNullOrEmpty(openAIApiKey);
-                     s_openAIClient = new OpenAIClient(openAIApiKey);
+                   var openAIApiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+                   Console.WriteLine("useAOAI value is: " + useAOAI.ToString());
+                   ArgumentNullException.ThrowIfNullOrEmpty(openAIApiKey);
+                   s_openAIClient = new OpenAIClient(openAIApiKey);
                }
                else
                {

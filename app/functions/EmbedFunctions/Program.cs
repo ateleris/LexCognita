@@ -1,6 +1,7 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
 using Azure.AI.OpenAI;
+using Milvus.Client;
 
 var host = new HostBuilder()
     .ConfigureServices(services =>
@@ -20,20 +21,6 @@ var host = new HostBuilder()
                 GetUriFromEnvironment("AZURE_FORMRECOGNIZER_SERVICE_ENDPOINT"));
         });
 
-        services.AddSingleton<SearchClient>(_ =>
-        {
-            return new SearchClient(
-                GetUriFromEnvironment("AZURE_SEARCH_SERVICE_ENDPOINT"),
-                Environment.GetEnvironmentVariable("AZURE_SEARCH_INDEX"),
-                credential);
-        });
-
-        services.AddSingleton<SearchIndexClient>(_ =>
-        {
-            return new SearchIndexClient(
-                GetUriFromEnvironment("AZURE_SEARCH_SERVICE_ENDPOINT"),
-                credential);
-        });
 
         services.AddSingleton<BlobContainerClient>(_ =>
         {
@@ -54,10 +41,9 @@ var host = new HostBuilder()
                 GetUriFromEnvironment("AZURE_STORAGE_BLOB_ENDPOINT"), credential);
         });
 
-        services.AddSingleton<EmbedServiceFactory>();
         services.AddSingleton<EmbeddingAggregateService>();
 
-        services.AddSingleton<IEmbedService, AzureSearchEmbedService>(provider =>
+        services.AddSingleton<MilvusEmbedService>(provider =>
         {
             var searchIndexName = Environment.GetEnvironmentVariable("AZURE_SEARCH_INDEX") ?? throw new ArgumentNullException("AZURE_SEARCH_INDEX is null");
             var useAOAI = Environment.GetEnvironmentVariable("USE_AOAI")?.ToLower() == "true";
@@ -79,11 +65,16 @@ var host = new HostBuilder()
                 openAIClient = new OpenAIClient(openaiKey);
             }
 
-            var searchClient = provider.GetRequiredService<SearchClient>();
-            var searchIndexClient = provider.GetRequiredService<SearchIndexClient>();
             var corpusContainer = provider.GetRequiredService<BlobContainerClient>();
             var documentClient = provider.GetRequiredService<DocumentAnalysisClient>();
-            var logger = provider.GetRequiredService<ILogger<AzureSearchEmbedService>>();
+            var logger = provider.GetRequiredService<ILogger<MilvusEmbedService>>();
+
+            var url = Environment.GetEnvironmentVariable("MILVUS_CONNECTION_URL") ?? "localhost";
+            var port = int.TryParse(Environment.GetEnvironmentVariable("MILVUS_CONNECTION_PORT"), out int portNum) ? portNum : 19530;
+            var username = Environment.GetEnvironmentVariable("MILVUS_CONNECTION_USERNAME") ?? "default";
+            var password = Environment.GetEnvironmentVariable("MILVUS_CONNECTION_PASSWORD") ?? "default";
+            var milvusClient = new MilvusClient(url, username: username, password: password, port: port);
+
 
             if (useVision)
             {
@@ -91,30 +82,24 @@ var host = new HostBuilder()
                 var httpClient = new HttpClient();
                 var visionClient = new AzureComputerVisionService(httpClient, visionEndpoint, new DefaultAzureCredential());
 
-                return new AzureSearchEmbedService(
+                return new MilvusEmbedService(
                     openAIClient: openAIClient,
+                    milvusClient: milvusClient,
                     embeddingModelName: embeddingModelName,
-                    searchClient: searchClient,
                     searchIndexName: searchIndexName,
-                    searchIndexClient: searchIndexClient,
                     documentAnalysisClient: documentClient,
                     corpusContainerClient: corpusContainer,
-                    computerVisionService: visionClient,
-                    includeImageEmbeddingsField: true,
                     logger: logger);
             }
             else
             {
-                return new AzureSearchEmbedService(
+                return new MilvusEmbedService(
                 openAIClient: openAIClient,
+                milvusClient: milvusClient,
                 embeddingModelName: embeddingModelName,
-                searchClient: searchClient,
                 searchIndexName: searchIndexName,
-                searchIndexClient: searchIndexClient,
                 documentAnalysisClient: documentClient,
                 corpusContainerClient: corpusContainer,
-                computerVisionService: null,
-                includeImageEmbeddingsField: false,
                 logger: logger);
             }
         });
