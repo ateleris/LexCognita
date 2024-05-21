@@ -7,6 +7,7 @@ using Microsoft.SemanticKernel.Embeddings;
 using MinimalApi.Extensions;
 using Shared.Models;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace MinimalApi.Services;
 #pragma warning disable SKEXP0011 // Mark members as static
@@ -146,48 +147,45 @@ Your answer needs to be a valid json object with the following format and no spe
                        promptExecutingSetting,
                        cancellationToken: cancellationToken);
 
-        //string answerJson = answer[0].ModelResult.GetOpenAIChatResult().Choice.Message.Content;
-
+        var answerJson = answer.Content ?? throw new InvalidOperationException("Failed to get search query");
         //Console.WriteLine(answerJson);
 
-        //// fix source links
-        //IList<string> presentCitations = new List<string>();
-        //foreach (var sourceDoc in documentContentList)
-        //{
-        //    if (answerJson.Contains(sourceDoc.Title))
-        //    {
-        //        presentCitations.Add(sourceDoc.Title);
-        //    }
-        //}
-        //// remove citations
-        //answerJson = Regex.Replace(answerJson, @"\[.*\]", "");
+        // fix source links
+        IList<string> presentCitations = new List<string>();
+        foreach (var sourceDoc in documentContentList)
+        {
+            if (answerJson.Contains(sourceDoc.Title))
+            {
+                presentCitations.Add(sourceDoc.Title);
+            }
+        }
+        // remove citations
+        answerJson = Regex.Replace(answerJson, @"\[.*\]", "");
 
-        //JsonElement answerObject;
-        //try
-        //{
-        //    answerObject = JsonSerializer.Deserialize<JsonElement>(answerJson);
-        //}
-        //catch (JsonException)
-        //{
-        //    return new ApproachResponse(
-        //        DataPoints: documentContentList,
-        //        Answer: "I'm sorry. I could not formulate a valid response.",
-        //        Thoughts: "",
-        //        CitationBaseUrl: _configuration.ToCitationBaseUrl()
-        //    );
-        //}
+        JsonElement answerObject;
+        try
+        {
+            answerObject = JsonSerializer.Deserialize<JsonElement>(answerJson);
+        }
+        catch (JsonException)
+        {
+            //return new ApproachResponse(
+            //    DataPoints: documentContentList,
+            //    Answer: "I'm sorry. I could not formulate a valid response.",
+            //    Thoughts: "",
+            //    CitationBaseUrl: _configuration.ToCitationBaseUrl()
+            //);
+            throw new NotImplementedException();
+        }
 
-        var answerJson = answer.Content ?? throw new InvalidOperationException("Failed to get search query");
-
-        var answerObject = JsonSerializer.Deserialize<JsonElement>(answerJson);
         var ans = answerObject.GetProperty("answer").GetString() ?? throw new InvalidOperationException("Failed to get answer");
         var thoughts = answerObject.GetProperty("thoughts").GetString() ?? throw new InvalidOperationException("Failed to get thoughts");
 
-        //// readd citations
-        //foreach (string citation in presentCitations)
-        //{
-        //    ans += $"[{citation}]";
-        //}
+        // readd citations
+        foreach (string citation in presentCitations)
+        {
+            ans += $"[{citation}]";
+        }
 
         // step 4
         // add follow up questions if requested

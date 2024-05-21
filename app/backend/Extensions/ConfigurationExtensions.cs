@@ -18,6 +18,7 @@ internal static class ConfigurationExtensions
 
         var builder = new UriBuilder(endpoint)
         {
+            Scheme = "https",
             Path = config["AzureStorageContainer"]
         };
 
