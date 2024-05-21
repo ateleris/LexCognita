@@ -1,5 +1,6 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
+using Azure;
 using Azure.AI.FormRecognizer.DocumentAnalysis;
 using Azure.AI.OpenAI;
 using Azure.Storage.Blobs;
@@ -31,14 +32,12 @@ internal static partial class Program
             var blobContainerClient = await GetCorpusBlobContainerClientAsync(o);
             var openAIClient = await GetOpenAIClientAsync(o);
             var embeddingModelName = o.EmbeddingModelName ?? throw new ArgumentNullException(nameof(o.EmbeddingModelName));
-            var searchIndexName = o.SearchIndexName ?? throw new ArgumentNullException(nameof(o.SearchIndexName));
             var computerVisionService = await GetComputerVisionServiceAsync(o);
 
             return new MilvusEmbedService(
                 openAIClient: openAIClient,
                 milvusClient: milvusClient,
                 embeddingModelName: embeddingModelName,
-                searchIndexName: searchIndexName,
                 documentAnalysisClient: documentClient,
                 corpusContainerClient: blobContainerClient,
                 logger: null);
@@ -49,12 +48,9 @@ internal static partial class Program
         {
             if (s_corpusContainerClient is null)
             {
-                var endpoint = o.StorageServiceBlobEndpoint;
-                ArgumentNullException.ThrowIfNullOrEmpty(endpoint);
-
                 var blobService = new BlobServiceClient(
-                    new Uri(endpoint),
-                    DefaultCredential);
+                    o.BlobConnectionString
+                    );
 
                 s_corpusContainerClient = blobService.GetBlobContainerClient("corpus");
 
@@ -69,12 +65,10 @@ internal static partial class Program
         {
             if (s_containerClient is null)
             {
-                var endpoint = o.StorageServiceBlobEndpoint;
-                ArgumentNullException.ThrowIfNullOrEmpty(endpoint);
 
                 var blobService = new BlobServiceClient(
-                    new Uri(endpoint),
-                    DefaultCredential);
+                    o.BlobConnectionString
+                    );
 
                 var blobContainerName = o.Container;
                 ArgumentNullException.ThrowIfNullOrEmpty(blobContainerName);
@@ -92,12 +86,9 @@ internal static partial class Program
         {
             if (s_documentClient is null)
             {
-                var endpoint = o.FormRecognizerServiceEndpoint;
-                ArgumentNullException.ThrowIfNullOrEmpty(endpoint);
-
                 s_documentClient = new DocumentAnalysisClient(
-                    new Uri(endpoint),
-                    DefaultCredential,
+                    new Uri(o.FormRecognizerServiceEndpoint),
+                    new AzureKeyCredential(o.FormRecognizerServiceKey),
                     new DocumentAnalysisClientOptions
                     {
                         Diagnostics =
@@ -131,22 +122,10 @@ internal static partial class Program
        {
            if (s_openAIClient is null)
            {
-               var useAOAI = Environment.GetEnvironmentVariable("USE_AOAI") == "true";
-               if (!useAOAI)
-               {
-                   var openAIApiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-                   Console.WriteLine("useAOAI value is: " + useAOAI.ToString());
-                   ArgumentNullException.ThrowIfNullOrEmpty(openAIApiKey);
-                   s_openAIClient = new OpenAIClient(openAIApiKey);
-               }
-               else
-               {
-                   var endpoint = o.AzureOpenAIServiceEndpoint;
-                   ArgumentNullException.ThrowIfNullOrEmpty(endpoint);
-                   s_openAIClient = new OpenAIClient(
-                       new Uri(endpoint),
-                       DefaultCredential);
-               }
+               s_openAIClient = new OpenAIClient(
+                   new Uri(o.AzureOpenAIServiceEndpoint),
+                   new AzureKeyCredential(o.AzureOpenAIServiceKey)
+               );
            }
            await Task.CompletedTask;
            return s_openAIClient;

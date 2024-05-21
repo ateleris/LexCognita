@@ -18,7 +18,6 @@ public sealed partial class MilvusEmbedService(
     OpenAIClient openAIClient,
     MilvusClient milvusClient,
     string embeddingModelName,
-    string searchIndexName,
     DocumentAnalysisClient documentAnalysisClient,
     BlobContainerClient corpusContainerClient,
     ILogger<MilvusEmbedService>? logger = null)
@@ -48,16 +47,6 @@ public sealed partial class MilvusEmbedService(
 
             var sections = CreateSections(pageMap, blobName);
 
-            var infoLoggingEnabled = logger?.IsEnabled(LogLevel.Information);
-            if (infoLoggingEnabled is true)
-            {
-                logger?.LogInformation("""
-                Indexing sections from '{BlobName}' into search index '{SearchIndexName}'
-                """,
-                    blobName,
-                    searchIndexName);
-            }
-
             await IndexSectionsAsync(sections);
 
             return true;
@@ -82,11 +71,11 @@ public sealed partial class MilvusEmbedService(
         {
             Fields =
             {
-                FieldSchema.Create<string>("id", isPrimaryKey: true),
-                FieldSchema.Create<string>("content"),
-                FieldSchema.Create<string>("category"),
-                FieldSchema.Create<string>("sourcepage"),
-                FieldSchema.Create<string>("sourcefile"),
+                FieldSchema.CreateVarchar("id", 100, isPrimaryKey: true),
+                FieldSchema.CreateVarchar("content", 65000),
+                FieldSchema.CreateVarchar("category", 10000),
+                FieldSchema.CreateVarchar("sourcepage", 10000),
+                FieldSchema.CreateVarchar("sourcefile", 10000),
                 FieldSchema.CreateFloatVector("embedding", 1536),
             }
         };
@@ -357,10 +346,11 @@ public sealed partial class MilvusEmbedService(
         List<string> sourcefiles = [];
         List<ReadOnlyMemory<float>> embeds = [];
 
-        var iteration = 1;
+        var iteration = 0;
         var batch = 100;
         foreach (var section in sections)
         {
+            iteration++;
             var embeddings = await openAIClient.GetEmbeddingsAsync(new Azure.AI.OpenAI.EmbeddingsOptions(embeddingModelName, [section.Content.Replace('\r', ' ')]));
             var embedding = embeddings.Value.Data.FirstOrDefault()?.Embedding.ToArray() ?? [];
 
@@ -404,11 +394,14 @@ public sealed partial class MilvusEmbedService(
             ]);
         }
 
-        await collection.CreateIndexAsync(
-            fieldName: "embedding",
-            indexType: IndexType.Hnsw,
-            metricType: SimilarityMetricType.L2,
-            indexName: "document_content_idx"
-        );
+        if (iteration > 0)
+        {
+            await collection.CreateIndexAsync(
+                fieldName: "embedding",
+                indexType: IndexType.AutoIndex,
+                metricType: SimilarityMetricType.L2,
+                indexName: "document_content_idx"
+            );
+        }
     }
 }

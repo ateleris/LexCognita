@@ -45,7 +45,6 @@ var host = new HostBuilder()
 
         services.AddSingleton<MilvusEmbedService>(provider =>
         {
-            var searchIndexName = Environment.GetEnvironmentVariable("AZURE_SEARCH_INDEX") ?? throw new ArgumentNullException("AZURE_SEARCH_INDEX is null");
             var useAOAI = Environment.GetEnvironmentVariable("USE_AOAI")?.ToLower() == "true";
             var useVision = Environment.GetEnvironmentVariable("USE_VISION")?.ToLower() == "true";
 
@@ -86,7 +85,6 @@ var host = new HostBuilder()
                     openAIClient: openAIClient,
                     milvusClient: milvusClient,
                     embeddingModelName: embeddingModelName,
-                    searchIndexName: searchIndexName,
                     documentAnalysisClient: documentClient,
                     corpusContainerClient: corpusContainer,
                     logger: logger);
@@ -97,7 +95,6 @@ var host = new HostBuilder()
                 openAIClient: openAIClient,
                 milvusClient: milvusClient,
                 embeddingModelName: embeddingModelName,
-                searchIndexName: searchIndexName,
                 documentAnalysisClient: documentClient,
                 corpusContainerClient: corpusContainer,
                 logger: logger);
