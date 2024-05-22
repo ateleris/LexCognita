@@ -7,11 +7,10 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<SharedWebComponents.App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-builder.Services.Configure<AppSettings>(
-    builder.Configuration.GetSection(nameof(AppSettings)));
+builder.Services.Configure<AppSettings>(builder.Configuration.GetSection(nameof(AppSettings)));
 builder.Services.AddHttpClient<ApiClient>(client =>
 {
-    client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress);
+    client.BaseAddress = new Uri("http://localhost:5167");
 });
 builder.Services.AddScoped<OpenAIPromptQueue>();
 builder.Services.AddLocalStorageServices();

@@ -151,7 +151,7 @@ Your answer needs to be a valid json object with the following format and no spe
         //Console.WriteLine(answerJson);
 
         // fix source links
-        IList<string> presentCitations = new List<string>();
+        ISet<string> presentCitations = new HashSet<string>();
         foreach (var sourceDoc in documentContentList)
         {
             if (answerJson.Contains(sourceDoc.Title))
@@ -169,13 +169,20 @@ Your answer needs to be a valid json object with the following format and no spe
         }
         catch (JsonException)
         {
-            //return new ApproachResponse(
-            //    DataPoints: documentContentList,
-            //    Answer: "I'm sorry. I could not formulate a valid response.",
-            //    Thoughts: "",
-            //    CitationBaseUrl: _configuration.ToCitationBaseUrl()
-            //);
-            throw new NotImplementedException();
+            var resMsg = new ResponseMessage("assistant", "I'm sorry. I could not formulate a valid response.");
+            var resCtx = new ResponseContext(
+                DataPointsContent: [],
+                DataPointsImages: [],
+                FollowupQuestions: [],
+                Thoughts: new[] { new Thoughts("Thoughts", "") });
+
+            var resChc = new ResponseChoice(
+                Index: 0,
+                Message: resMsg,
+                Context: resCtx,
+                CitationBaseUrl: _configuration.ToCitationBaseUrl());
+
+            return new ChatAppResponse([resChc]);
         }
 
         var ans = answerObject.GetProperty("answer").GetString() ?? throw new InvalidOperationException("Failed to get answer");
@@ -234,6 +241,6 @@ e.g.
             Context: responseContext,
             CitationBaseUrl: _configuration.ToCitationBaseUrl());
 
-        return new ChatAppResponse(new[] { choice });
+        return new ChatAppResponse([choice]);
     }
 }

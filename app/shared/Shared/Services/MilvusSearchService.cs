@@ -40,7 +40,7 @@ public class MilvusSearchService(MilvusClient milvusClient) : MilvusBase(milvusC
             vectorFieldName: "embedding",
             vectors: embeds,
             SimilarityMetricType.L2,
-            limit: 5,
+            limit: 3,
             parameters
         );
 
