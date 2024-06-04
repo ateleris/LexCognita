@@ -7,6 +7,7 @@ using Microsoft.SemanticKernel.Embeddings;
 using MinimalApi.Extensions;
 using Shared.Models;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace MinimalApi.Services;
 #pragma warning disable SKEXP0011 // Mark members as static
@@ -156,17 +157,17 @@ Your answer needs to be a valid json object with the following format. Please es
         var answerJson = answer.Content ?? throw new InvalidOperationException("Failed to get search query");
         //Console.WriteLine(answerJson);
 
-        //// fix source links
-        //ISet<string> presentCitations = new HashSet<string>();
-        //foreach (var sourceDoc in documentContentList)
-        //{
-        //    if (answerJson.Contains(sourceDoc.Title))
-        //    {
-        //        presentCitations.Add(sourceDoc.Title);
-        //    }
-        //}
-        //// remove citations
-        //answerJson = Regex.Replace(answerJson, @"\[.*\]", "");
+        // fix source links
+        ISet<string> presentCitations = new HashSet<string>();
+        foreach (var sourceDoc in documentContentList)
+        {
+            if (answerJson.Contains(sourceDoc.Title))
+            {
+                presentCitations.Add(sourceDoc.Title);
+            }
+        }
+        // remove citations
+        answerJson = Regex.Replace(answerJson, @"\[\s*[^]]*?[^]]*?\]", "");
 
         JsonElement answerObject;
         try
@@ -207,11 +208,11 @@ Your answer needs to be a valid json object with the following format. Please es
 
         var thoughts = answerObject.GetProperty("thoughts").GetString() ?? throw new InvalidOperationException("Failed to get thoughts");
 
-        //// readd citations
-        //foreach (string citation in presentCitations)
-        //{
-        //    ans += $"[{citation}]";
-        //}
+        // readd citations
+        foreach (string citation in presentCitations)
+        {
+            ans += $"[{citation}]";
+        }
 
         // step 4
         // add follow up questions if requested
