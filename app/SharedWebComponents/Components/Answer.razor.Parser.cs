@@ -23,7 +23,7 @@ public sealed partial class Answer
         {
             if (index % 2 is 0)
             {
-                return part;
+                return part.Replace("\n", "<br/>"); ;
             }
             else
             {

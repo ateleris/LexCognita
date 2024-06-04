@@ -141,6 +141,10 @@ Your answer needs to be a valid json object with the following format. Please es
             MaxTokens = 1024,
             Temperature = overrides?.Temperature ?? 0.7,
             StopSequences = [],
+
+#pragma warning disable SKEXP0013 // Rethrow to preserve stack details
+            ResponseFormat = ChatCompletionsResponseFormat.JsonObject,
+#pragma warning restore SKEXP0013
         };
 
         // get answer
@@ -221,11 +225,13 @@ Your answer needs to be a valid json object with the following format. Please es
 # Format of the response
 Return the follow-up question as a json string list. Don't put your answer between ```json and ```, return the json string directly.
 e.g.
-[
-    ""What is the deductible?"",
-    ""What is the co-pay?"",
-    ""What is the out-of-pocket maximum?""
-]");
+{{
+    ""followUpQuestions"": [
+        ""What is the deductible?"",
+        ""What is the co-pay?"",
+        ""What is the out-of-pocket maximum?""
+    ]
+}}");
 
             var followUpQuestions = await chat.GetChatMessageContentAsync(
                 followUpQuestionChat,
@@ -234,7 +240,7 @@ e.g.
 
             var followUpQuestionsJson = followUpQuestions.Content ?? throw new InvalidOperationException("Failed to get search query");
             var followUpQuestionsObject = JsonSerializer.Deserialize<JsonElement>(followUpQuestionsJson);
-            var followUpQuestionsList = followUpQuestionsObject.EnumerateArray().Select(x => x.GetString()!).ToList();
+            var followUpQuestionsList = followUpQuestionsObject.GetProperty("followUpQuestions").EnumerateArray().Select(x => x.GetString()!).ToList();
             foreach (var followUpQuestion in followUpQuestionsList)
             {
                 ans += $" <<{followUpQuestion}>> ";
