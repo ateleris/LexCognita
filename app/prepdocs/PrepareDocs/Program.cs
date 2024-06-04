@@ -1,6 +1,3 @@
-﻿
-
-using System.Text.RegularExpressions;
 using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
@@ -9,24 +6,24 @@ using Microsoft.Extensions.FileSystemGlobbing;
 using PdfSharpCore.Pdf;
 using PdfSharpCore.Pdf.IO;
 using PrepareDocs;
+using System.Text.RegularExpressions;
 
 var options = new AppOptions(
-    "C:\\TEMP",
+    "C:\\TEMP\\EpicVSAppleData",
     null,
     SkipBlobs: false,
     BlobConnectionString: "",
-    Container: "documents",
+    Container: "epicvsapple",
     null,
     null,
     AzureOpenAIServiceEndpoint: "https://lexcognitai.openai.azure.com/",
     AzureOpenAIServiceKey: "",
     EmbeddingModelName: "text-embedding-ada-002",
     false,
-    false,
     "https://lexcognitadi.cognitiveservices.azure.com/",
     "",
     null,
-    false,
+    true,
     "localhost",
     19530,
     "default",
@@ -85,8 +82,7 @@ static async ValueTask RemoveBlobsAsync(
         : null;
 
     var getContainerClientTask = GetBlobContainerClientAsync(options);
-    var getCorpusClientTask = GetCorpusBlobContainerClientAsync(options);
-    var clientTasks = new[] { getContainerClientTask, getCorpusClientTask };
+    var clientTasks = new[] { getContainerClientTask };
 
     await Task.WhenAll(clientTasks);
 
@@ -123,81 +119,55 @@ static async ValueTask UploadBlobsAndCreateIndexAsync(
     // If it's a PDF, split it into single pages.
     if (Path.GetExtension(fileName).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
     {
-        using var documents = PdfReader.Open(fileName, PdfDocumentOpenMode.Import);
-        for (int i = 0; i < documents.PageCount; i++)
+        try
         {
-            var documentName = BlobNameFromFilePage(fileName, i);
-            var blobClient = container.GetBlobClient(documentName);
-            if (await blobClient.ExistsAsync())
+            using var documents = PdfReader.Open(fileName, PdfDocumentOpenMode.Import);
+
+            for (int i = 0; i < documents.PageCount; i++)
             {
-                continue;
-            }
-
-            var tempFileName = Path.GetTempFileName();
-
-            try
-            {
-                using var document = new PdfDocument();
-                document.AddPage(documents.Pages[i]);
-                document.Save(tempFileName);
-
-                await using var stream = File.OpenRead(tempFileName);
-                await blobClient.UploadAsync(stream, new BlobHttpHeaders
+                var documentName = BlobNameFromFilePage(fileName, i);
+                var blobClient = container.GetBlobClient(documentName);
+                if (await blobClient.ExistsAsync())
                 {
-                    ContentType = "application/pdf"
-                });
+                    continue;
+                }
 
-                // revert stream position
-                stream.Position = 0;
+                var tempFileName = Path.GetTempFileName();
 
-                await embeddingService.EmbedPDFBlobAsync(stream, documentName);
-            }
-            finally
-            {
-                File.Delete(tempFileName);
+                try
+                {
+                    using var document = new PdfDocument();
+                    document.AddPage(documents.Pages[i]);
+                    document.Save(tempFileName);
+
+                    await using var stream = File.OpenRead(tempFileName);
+                    await blobClient.UploadAsync(stream, new BlobHttpHeaders
+                    {
+                        ContentType = "application/pdf"
+                    });
+
+                    // revert stream position
+                    stream.Position = 0;
+
+                    await embeddingService.EmbedPDFBlobAsync(stream, documentName);
+                }
+                finally
+                {
+                    File.Delete(tempFileName);
+                }
+                Console.WriteLine($"Finished '{documentName}'");
             }
         }
+        catch (PdfReaderException)
+        {
+            Console.WriteLine($"ERROR WITH DOCUMENT '{fileName}'");
+        }
+
     }
     else
     {
-        var blobName = BlobNameFromFilePage(fileName);
-        await UploadBlobAsync(fileName, blobName, container);
-        await embeddingService.EmbedPDFBlobAsync(File.OpenRead(fileName), blobName);
+        throw new NotImplementedException();
     }
-}
-
-static async Task<string> UploadBlobAsync(string fileName, string blobName, BlobContainerClient container)
-{
-    var blobClient = container.GetBlobClient(blobName);
-    var url = blobClient.Uri.AbsoluteUri;
-
-    if (await blobClient.ExistsAsync())
-    {
-        return url;
-    }
-
-    var blobHttpHeaders = new BlobHttpHeaders
-    {
-        ContentType = GetContentType(fileName)
-    };
-
-    await using var fileStream = File.OpenRead(fileName);
-    await blobClient.UploadAsync(fileStream, blobHttpHeaders);
-
-
-    return url;
-}
-
-static string GetContentType(string fileName)
-{
-    var extension = Path.GetExtension(fileName);
-    return extension switch
-    {
-        ".pdf" => "application/pdf",
-        ".txt" => "text/plain",
-
-        _ => "application/octet-stream"
-    };
 }
 
 static string BlobNameFromFilePage(string filename, int page = 0) => Path.GetExtension(filename).ToLower() is ".pdf"

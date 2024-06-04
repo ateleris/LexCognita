@@ -14,7 +14,6 @@ internal record class AppOptions(
     string AzureOpenAIServiceKey,
     string EmbeddingModelName,
     bool Remove,
-    bool RemoveAll,
     string FormRecognizerServiceEndpoint,
     string FormRecognizerServiceKey,
     string? ComputerVisionServiceEndpoint,

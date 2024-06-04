@@ -8,6 +8,7 @@ public class MilvusSearchService(MilvusClient milvusClient) : MilvusBase(milvusC
         string? query = null,
         float[]? embedding = null,
         RequestOverrides? overrides = null,
+        int documentNumber = 5,
         CancellationToken cancellationToken = default)
     {
         if (query is null && embedding is null)
@@ -16,7 +17,6 @@ public class MilvusSearchService(MilvusClient milvusClient) : MilvusBase(milvusC
         }
 
         var documentContents = string.Empty;
-        var top = overrides?.Top ?? 3;
         var exclude_category = overrides?.ExcludeCategory;
         var filter = exclude_category == null ? string.Empty : $"category ne '{exclude_category}'";
         var useSemanticRanker = overrides?.SemanticRanker ?? false;
@@ -30,7 +30,7 @@ public class MilvusSearchService(MilvusClient milvusClient) : MilvusBase(milvusC
         {
             OutputFields = { "content", "sourcepage" },
             ConsistencyLevel = ConsistencyLevel.Strong,
-            ExtraParameters = { ["nprobe"] = "1024" }
+            //ExtraParameters = { ["nprobe"] = "1024" }
         };
 
         List<ReadOnlyMemory<float>> embeds = [];
@@ -40,7 +40,7 @@ public class MilvusSearchService(MilvusClient milvusClient) : MilvusBase(milvusC
             vectorFieldName: "embedding",
             vectors: embeds,
             SimilarityMetricType.L2,
-            limit: 3,
+            limit: documentNumber,
             parameters
         );
 

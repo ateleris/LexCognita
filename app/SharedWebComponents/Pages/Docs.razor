@@ -3,7 +3,7 @@
 <PageTitle>Documents</PageTitle>
 
 <MudGrid Justify="Justify.Center">
-    <MudItem id="uploads" xs="12" Class="overflow-x-auto">
+@*     <MudItem id="uploads" xs="12" Class="overflow-x-auto">
         <MudCard>
             <MudForm @ref="@_form">
                 <MudCardHeader>
@@ -22,13 +22,13 @@
                                    Accept=".pdf, .png, .jpg, .jpeg" MaximumFileCount="10" FilesChanged=@(files => StateHasChanged())
                                    Required="true" RequiredError="You must select at least one file to upload.">
                         <ButtonTemplate>
-                            <!--<MudButton HtmlTag="label"
+                            <MudButton HtmlTag="label"
                                        Variant="Variant.Filled"
                                        StartIcon="@Icons.Material.Filled.FileOpen"
                                        Size="Size.Large"
                                        for="@context">
                                 Select PDF Documents
-                            </MudButton>-->
+                            </MudButton>
                         </ButtonTemplate>
                         <SelectedTemplate>
                             <MudExpansionPanels Class="pt-4" Elevation=2>
@@ -88,7 +88,7 @@
                 </MudCardActions>
             </MudForm>
         </MudCard>
-    </MudItem>
+    </MudItem> *@
     <MudItem xs="12">
         <MudTable Items="@_documents" Dense="true" Hover="true" Bordered="true"
                   FixedHeader="true" Filter="OnFilter" Elevation="4">

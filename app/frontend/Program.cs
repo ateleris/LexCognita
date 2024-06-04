@@ -9,7 +9,9 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Services.AddHttpClient<ApiClient>(client =>
 {
-    client.BaseAddress = new Uri("http://localhost:5167");
+    string backendHost = builder.Configuration.GetValue<string>("BackendHost")!;
+    string backendPort = builder.Configuration.GetValue<string>("BackendPort")!;
+    client.BaseAddress = new Uri($"{backendHost}:{backendPort}");
 });
 builder.Services.AddScoped<OpenAIPromptQueue>();
 builder.Services.AddLocalStorageServices();

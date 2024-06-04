@@ -121,9 +121,10 @@ internal static class WebApplicationExtensions
                 var builder = new UriBuilder(baseUri);
                 builder.Path += $"/{blob.Name}";
 
-                var metadata = blob.Metadata;
-                var documentProcessingStatus = GetMetadataEnumOrDefault<DocumentProcessingStatus>(
-                    metadata, nameof(DocumentProcessingStatus), DocumentProcessingStatus.NotProcessed);
+                //var metadata = blob.Metadata;
+                //var documentProcessingStatus = GetMetadataEnumOrDefault<DocumentProcessingStatus>(
+                //    metadata, nameof(DocumentProcessingStatus), DocumentProcessingStatus.NotProcessed);
+                var documentProcessingStatus = DocumentProcessingStatus.Succeeded;
 
                 yield return new(
                     blob.Name,
@@ -134,13 +135,13 @@ internal static class WebApplicationExtensions
                     documentProcessingStatus,
                     "milvus");
 
-                static TEnum GetMetadataEnumOrDefault<TEnum>(
-                    IDictionary<string, string> metadata,
-                    string key,
-                    TEnum @default) where TEnum : struct => metadata.TryGetValue(key, out var value)
-                        && Enum.TryParse<TEnum>(value, out var status)
-                            ? status
-                            : @default;
+                //static TEnum GetMetadataEnumOrDefault<TEnum>(
+                //    IDictionary<string, string> metadata,
+                //    string key,
+                //    TEnum @default) where TEnum : struct => metadata.TryGetValue(key, out var value)
+                //        && Enum.TryParse<TEnum>(value, out var status)
+                //            ? status
+                //            : @default;
             }
         }
     }

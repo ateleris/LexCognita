@@ -8,7 +8,7 @@ public class MilvusBase(MilvusClient client, OpenAIClient? openAIClient, string?
 {
     protected readonly MilvusClient client = client;
 
-    protected const string COLLECTION_NAME = "documents";
+    protected const string COLLECTION_NAME = "epicvsapple";
 
     protected async Task<MilvusCollection> GetOrCreateCollectionAsync()
     {

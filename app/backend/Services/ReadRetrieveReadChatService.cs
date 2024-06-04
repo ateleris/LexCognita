@@ -7,7 +7,6 @@ using Microsoft.SemanticKernel.Embeddings;
 using MinimalApi.Extensions;
 using Shared.Models;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 namespace MinimalApi.Services;
 #pragma warning disable SKEXP0011 // Mark members as static
@@ -18,6 +17,7 @@ public class ReadRetrieveReadChatService
     private readonly Kernel _kernel;
     private readonly IConfiguration _configuration;
     private readonly TokenCredential? _tokenCredential;
+    private readonly int _documentNumber;
 
     public ReadRetrieveReadChatService(
         MilvusSearchService searchClient,
@@ -27,6 +27,8 @@ public class ReadRetrieveReadChatService
     {
         _searchClient = searchClient;
         var kernelBuilder = Kernel.CreateBuilder();
+
+        _documentNumber = int.TryParse(configuration["DocumentNumber"], out int num) ? num : 5;
 
         var deployedModelName = configuration["AzureOpenAiChatGptDeployment"];
         ArgumentException.ThrowIfNullOrWhiteSpace(deployedModelName);
@@ -92,7 +94,7 @@ AND gov.uscourts.cand.364265.1.0_2-10.
 
         // step 2
         // use query to search related docs
-        var documentContentList = await _searchClient.QueryDocumentsAsync(query, embeddings, overrides, cancellationToken);
+        var documentContentList = await _searchClient.QueryDocumentsAsync(query, embeddings, overrides, _documentNumber, cancellationToken);
 
         string documentContents = string.Empty;
         if (documentContentList.Length == 0)
@@ -107,7 +109,7 @@ AND gov.uscourts.cand.364265.1.0_2-10.
         // step 3
         // put together related docs and conversation history to generate answer
         var answerChat = new ChatHistory(
-           "You are a helpful legal AI assistant answering questions about the Apple vs Epic case. You interact with people who have a legal background. Your answers are related to the Apple vs Epic legal case. Be brief in your answer.");
+           "You are a helpful legal AI assistant answering questions about the Apple vs Epic case. You interact with people who have a legal background. Your answers are related to the Apple vs Epic legal case.");
 
         // add chat history
         foreach (var message in history)
@@ -126,9 +128,9 @@ AND gov.uscourts.cand.364265.1.0_2-10.
 {documentContents}
 ## End ##
 
-Your answer needs to be a valid json object with the following format and no special characters.
+Your answer needs to be a valid json object with the following format. Please escape all special characters and return the answers as valid json string.
 {{
-""answer"": // the answer to the question, add a source reference to the end of each sentence. e.g. Apple is a fruit [reference1.pdf][reference2.pdf]. If no source available, put the answer as I don't know.
+""answer"": // the answer to the question, add a source reference to the end of each sentence. e.g. Apple is a fruit [reference1.pdf][reference2.pdf]. If no source available elaborate why as answer.
 ""thoughts"": // brief thoughts on how you came up with the answer, e.g. what sources you used, what you thought about, etc.
 }}";
         answerChat.AddUserMessage(prompt);
@@ -150,17 +152,17 @@ Your answer needs to be a valid json object with the following format and no spe
         var answerJson = answer.Content ?? throw new InvalidOperationException("Failed to get search query");
         //Console.WriteLine(answerJson);
 
-        // fix source links
-        ISet<string> presentCitations = new HashSet<string>();
-        foreach (var sourceDoc in documentContentList)
-        {
-            if (answerJson.Contains(sourceDoc.Title))
-            {
-                presentCitations.Add(sourceDoc.Title);
-            }
-        }
-        // remove citations
-        answerJson = Regex.Replace(answerJson, @"\[.*\]", "");
+        //// fix source links
+        //ISet<string> presentCitations = new HashSet<string>();
+        //foreach (var sourceDoc in documentContentList)
+        //{
+        //    if (answerJson.Contains(sourceDoc.Title))
+        //    {
+        //        presentCitations.Add(sourceDoc.Title);
+        //    }
+        //}
+        //// remove citations
+        //answerJson = Regex.Replace(answerJson, @"\[.*\]", "");
 
         JsonElement answerObject;
         try
@@ -185,14 +187,27 @@ Your answer needs to be a valid json object with the following format and no spe
             return new ChatAppResponse([resChc]);
         }
 
-        var ans = answerObject.GetProperty("answer").GetString() ?? throw new InvalidOperationException("Failed to get answer");
+        string ans = "";
+        try
+        {
+            ans = answerObject.GetProperty("answer").GetString() ?? "";
+        }
+        catch (InvalidOperationException)
+        {
+            foreach (var item in answerObject.GetProperty("answer").EnumerateArray())
+            {
+                ans += item.GetString();
+                ans += "\n";
+            }
+        }
+
         var thoughts = answerObject.GetProperty("thoughts").GetString() ?? throw new InvalidOperationException("Failed to get thoughts");
 
-        // readd citations
-        foreach (string citation in presentCitations)
-        {
-            ans += $"[{citation}]";
-        }
+        //// readd citations
+        //foreach (string citation in presentCitations)
+        //{
+        //    ans += $"[{citation}]";
+        //}
 
         // step 4
         // add follow up questions if requested

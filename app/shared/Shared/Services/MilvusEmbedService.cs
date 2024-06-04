@@ -35,14 +35,9 @@ public sealed partial class MilvusEmbedService(
             Console.WriteLine($"Embedding blob '{blobName}'");
             var pageMap = await GetDocumentTextAsync(pdfBlobStream, blobName);
 
-            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(blobName);
-
-            // Create corpus from page map and upload to blob
-            // Corpus name format: fileName-{page}.txt
-            foreach (var page in pageMap)
+            if (pageMap.Count != 1)
             {
-                var corpusName = $"{fileNameWithoutExtension}-{page.Index}.txt";
-                await UploadCorpusAsync(corpusName, page.Text);
+                throw new InvalidDataException();
             }
 
             var sections = CreateSections(pageMap, blobName);
@@ -258,7 +253,7 @@ public sealed partial class MilvusEmbedService(
             yield return new Section(
                 Id: MatchInSetRegex().Replace($"{blobName}-{start}", "_").TrimStart('_'),
                 Content: sectionText,
-                SourcePage: BlobNameFromFilePage(blobName, FindPage(pageMap, start)),
+                SourcePage: blobName,
                 SourceFile: blobName);
 
             var lastTableStart = sectionText.LastIndexOf("<table", StringComparison.Ordinal);
@@ -291,7 +286,7 @@ public sealed partial class MilvusEmbedService(
             yield return new Section(
                 Id: MatchInSetRegex().Replace($"{blobName}-{start}", "_").TrimStart('_'),
                 Content: allText[start..end],
-                SourcePage: BlobNameFromFilePage(blobName, FindPage(pageMap, start)),
+                SourcePage: blobName,
                 SourceFile: blobName);
         }
     }

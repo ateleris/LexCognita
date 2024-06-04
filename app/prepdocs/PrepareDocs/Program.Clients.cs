@@ -4,6 +4,7 @@ using Azure;
 using Azure.AI.FormRecognizer.DocumentAnalysis;
 using Azure.AI.OpenAI;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using EmbedFunctions.Services;
 using Milvus.Client;
 using PrepareDocs;
@@ -29,7 +30,7 @@ internal static partial class Program
             var milvusClient = new MilvusClient(options.milvusURL, username: options.milvusUsername, password: options.milvusPassword, port: options.milvusPort);
 
             var documentClient = await GetFormRecognizerClientAsync(o);
-            var blobContainerClient = await GetCorpusBlobContainerClientAsync(o);
+            var blobContainerClient = await GetBlobContainerClientAsync(o);
             var openAIClient = await GetOpenAIClientAsync(o);
             var embeddingModelName = o.EmbeddingModelName ?? throw new ArgumentNullException(nameof(o.EmbeddingModelName));
 
@@ -40,23 +41,6 @@ internal static partial class Program
                 documentAnalysisClient: documentClient,
                 corpusContainerClient: blobContainerClient,
                 logger: null);
-        });
-
-    private static Task<BlobContainerClient> GetCorpusBlobContainerClientAsync(AppOptions options) =>
-        GetLazyClientAsync<BlobContainerClient>(options, s_corpusContainerLock, static async o =>
-        {
-            if (s_corpusContainerClient is null)
-            {
-                var blobService = new BlobServiceClient(
-                    o.BlobConnectionString
-                    );
-
-                s_corpusContainerClient = blobService.GetBlobContainerClient("corpus");
-
-                await s_corpusContainerClient.CreateIfNotExistsAsync();
-            }
-
-            return s_corpusContainerClient;
         });
 
     private static Task<BlobContainerClient> GetBlobContainerClientAsync(AppOptions options) =>
@@ -74,7 +58,7 @@ internal static partial class Program
 
                 s_containerClient = blobService.GetBlobContainerClient(blobContainerName);
 
-                await s_containerClient.CreateIfNotExistsAsync();
+                await s_containerClient.CreateIfNotExistsAsync(PublicAccessType.BlobContainer);
             }
 
             return s_containerClient;
